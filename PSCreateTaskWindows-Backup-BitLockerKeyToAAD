@@ -1,0 +1,78 @@
+# ***************************************************************************
+#
+# Purpose: This script creates a scheduled task and sets it to to start 
+# automatically on event 768, which is when BitLocker disk encryption starts.
+# The task will run 10 seconds after creation and execute a script to back up 
+# all BitLocker recovery keys found on the device to Azure AD.
+#
+# ------------- DISCLAIMER -------------------------------------------------
+# This script code is provided as is with no guarantee or waranty concerning
+# the usability or impact on systems and may be used, distributed, and
+# modified in any way provided the parties agree and acknowledge the 
+# Microsoft or Microsoft Partners have neither accountabilty or 
+# responsibility for results produced by use of this script.
+#
+# Microsoft will not provide any support through any means.
+# ------------- DISCLAIMER -------------------------------------------------
+#
+# ***************************************************************************
+
+# Script Added Here
+
+$content = @'
+Try {
+    Get-BitLockerVolume | ForEach-Object {
+        $MountPoint = $_.MountPoint
+        $ProtectionStatus = $_.ProtectionStatus
+        $VolumeStatus = $_.VolumeStatus
+        Write-Output "BitLocker is [$ProtectionStatus] for the drive [$MountPoint] and the current status is [$VolumeStatus]."
+        $BitLockerVolume = Get-BitLockerVolume -MountPoint $MountPoint
+        $BitLockerVolume.KeyProtector | Where-Object { $_.KeyProtectorType -eq 'RecoveryPassword' } | ForEach-Object {
+            Try {
+                $KeyProtectorId = $_.KeyProtectorId
+                BackupToAAD-BitLockerKeyProtector -MountPoint $MountPoint -KeyProtectorId $KeyProtectorId -ErrorAction SilentlyContinue
+                Write-Output "Started backup of recovery key with protector ID [$KeyProtectorId] from drive [$MountPoint] to Azure AD."
+            } Catch {
+                Write-Error "Failed to backup recovery key with protector ID [$KeyProtectorId] from drive [$MountPoint] to Azure AD."
+            }
+        }
+    }
+} Catch {
+    Write-Error "Error backing up BitLocker recovery key."
+}
+'@
+ 
+# Creates custom folder and writes PS script to it
+
+$scriptFolder = "$env:ProgramData\CustomScripts"
+$scriptFullPath = Join-Path $scriptFolder \Backup-BitLockerKeyToAAD.ps1
+if (!(Test-Path $scriptFolder)) { New-Item -Path $scriptFolder -ItemType Directory -Force -Confirm:$false }
+Out-File -FilePath $scriptFullPath -Encoding unicode -Force -InputObject $content -Confirm:$false
+ 
+# Register the script as a scheduled task
+
+$taskName = "Backup BitLocker Keys to Azure AD"
+$Path = 'PowerShell.exe'
+$Arguments = "-ExecutionPolicy Bypass -NonInteractive -WindowStyle Hidden -File `"$scriptFullPath`""
+
+$Service = new-object -ComObject ("Schedule.Service")
+$Service.Connect()
+$RootFolder = $Service.GetFolder("\")
+$TaskDefinition = $Service.NewTask(0) # TaskDefinition object https://msdn.microsoft.com/en-us/library/windows/desktop/aa382542(v=vs.85).aspx
+$TaskDefinition.RegistrationInfo.Description = ''
+$TaskDefinition.Settings.Enabled = $True
+$TaskDefinition.Settings.AllowDemandStart = $True
+$TaskDefinition.Settings.DisallowStartIfOnBatteries = $False
+$Triggers = $TaskDefinition.Triggers
+$Trigger = $Triggers.Create(0) ## 0 is an event trigger https://msdn.microsoft.com/en-us/library/windows/desktop/aa383898(v=vs.85).aspx
+$Trigger.Enabled = $true
+$Trigger.Id = '768' # 768 BitLocker encryption started for volume
+$Trigger.Subscription = "<QueryList><Query Id='0' Path='Microsoft-Windows-BitLocker/BitLocker Management'><Select Path='Microsoft-Windows-BitLocker/BitLocker Management'>*[System[Provider[@Name='Microsoft-Windows-BitLocker-API'] and EventID=768]]</Select></Query></QueryList>"
+$Action = $TaskDefinition.Actions.Create(0)
+$Action.Path = $Path
+$action.Arguments = $Arguments
+$RootFolder.RegisterTaskDefinition($taskName, $TaskDefinition, 6, "NT AUTHORITY\SYSTEM", $null, 5) | Out-Null
+
+# Starts execution of the scheduled task
+Start-Sleep 10
+Start-ScheduledTask -TaskName $taskName
