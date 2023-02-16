@@ -16,7 +16,6 @@
 
 $hash = @{
     'go.microsoft.com' = '443'
-    'time.windows.com' = '123'
     'login.live.com' = '443'
     'crl.microsoft.com' = '443'
     'activation.sls.microsoft.com' = '443'
