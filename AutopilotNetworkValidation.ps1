@@ -16,6 +16,7 @@
 
 $hash = @{
     'go.microsoft.com' = '443'
+    'time.windows.com' = '123'
     'login.live.com' = '443'
     'crl.microsoft.com' = '443'
     'activation.sls.microsoft.com' = '443'
@@ -41,7 +42,6 @@ $hash = @{
     'a.manage.microsoft.com' = '443'
     'EnterpriseEnrollment.manage.microsoft.com' = '443'
     'EnterpriseEnrollment-s.manage.microsoft.com' = '443'
-    'portal.fei.msua01.manage.microsoft.com' = '443'
     'fef.msua06.manage.microsoft.com' = '443'
     'enrollment.manage.microsoft.com' = '443'
     'www.msftconnecttest.com' = '443'
