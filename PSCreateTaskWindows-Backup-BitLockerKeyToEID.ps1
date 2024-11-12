@@ -76,7 +76,7 @@ Out-File -FilePath $scriptFullPath -Encoding unicode -Force -InputObject $conten
 # Register the script as a scheduled task
 
 #region ScheduledTask
-$taskName = "Backup BitLocker Keys to Azure AD"
+$taskName = "Backup BitLocker Keys to Entra ID"
 $Path = 'PowerShell.exe'
 $Arguments = "-ExecutionPolicy Bypass -NonInteractive -WindowStyle Hidden -File `"$scriptFullPath`""
 
